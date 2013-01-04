@@ -5,6 +5,7 @@ module Main where
 import           Control.Category
 import           Control.Lens hiding ((<.>))
 import qualified Data.ByteString.Char8 as B 
+import           Data.IORef 
 import           Data.Monoid 
 import           Data.Time.Clock 
 import           Graphics.Rendering.Cairo 
@@ -20,6 +21,41 @@ import           Hoodle.Script.Hook
 import           Hoodle.StartUp
 -- 
 import Prelude hiding ((.),id)
+
+-- |
+main :: IO ()
+main = do  
+    pathref <- newIORef ("" :: FilePath) 
+    hoodleStartMain defaultScriptConfig 
+           { message = Just welcomeMessage 
+           , hook = Just (newhook pathref) } 
+       -- { message = welcomeMessage } 
+
+-- | 
+newhook :: IORef FilePath -> Hook 
+newhook ref = 
+  defaultHook { saveAsHook = Nothing -- sahk 
+              , afterSaveHook = Just (memoPath ref) -- Nothing -- Just ashk
+              , afterOpenHook = Nothing 
+              , afterUpdateClipboardHook = Just auch 
+              , customContextMenuTitle = Just "take a memo"
+              , customContextMenuHook = Just custommenuhook 
+              , fileNameSuggestionHook = Just fnamesuggest
+              , recentFolderHook = Just (giveMemoed ref)
+              } 
+
+
+memoPath :: IORef FilePath -> FilePath -> Hoodle -> IO () 
+memoPath ref fp _ = do 
+  prev <- readIORef ref
+  putStrLn $ "in memopath, prev = " ++ prev
+  let (dir,fn) = splitFileName fp 
+  writeIORef ref dir
+  putStrLn $ "in memopath, dir = " ++ dir 
+  
+  
+giveMemoed :: IORef FilePath -> IO FilePath   
+giveMemoed ref = readIORef ref 
 
 -- |
 makesvg :: [Item] -> FilePath -> IO () 
@@ -54,12 +90,6 @@ renderitems itms = do
       in return (Just (bbox,r))
     _ -> return Nothing 
 
--- |
-main :: IO ()
-main = hoodleStartMain defaultScriptConfig 
-         { message = Just welcomeMessage 
-         , hook = Just newhook } 
-       -- { message = welcomeMessage } 
 
 -- |
 custommenuhook :: [Item] -> IO ()
@@ -74,15 +104,6 @@ fnamesuggest = do
   ctime <- getCurrentTime
   return (show ctime <.> "hdl")
 
--- | 
-newhook :: Hook 
-newhook = defaultHook { saveAsHook = Nothing -- sahk 
-                      , afterSaveHook = Nothing -- Just ashk
-                      , afterUpdateClipboardHook = Just auch 
-                      , customContextMenuTitle = Just "take a memo"
-                      , customContextMenuHook = Just custommenuhook 
-                      , fileNameSuggestionHook = Just fnamesuggest
-                      } 
           
 -- | after update clipboard hook
 auch :: [Item] -> IO ()
