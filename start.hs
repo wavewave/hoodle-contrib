@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards, DeriveDataTypeable, ScopedTypeVariables #-}
 
 module Main where 
 
@@ -8,9 +8,14 @@ import qualified Data.ByteString.Char8 as B
 import           Data.IORef 
 import           Data.Monoid 
 import           Data.Time.Clock 
+import           Database.CouchDB
 import           Graphics.Rendering.Cairo 
 import           Graphics.UI.Gtk hiding (get,set)
+import           System.Directory 
 import           System.FilePath
+import           Text.JSON
+import           Text.JSON.Pretty
+import           Text.JSON.Generic
 -- 
 import           Data.Hoodle.BBox
 import           Data.Hoodle.Simple
@@ -22,13 +27,41 @@ import           Hoodle.StartUp
 -- 
 import Prelude hiding ((.),id)
 
+
+data RecentPath = RecentPath { rpPath :: FilePath 
+                             }
+                deriving (Show, Typeable, Data)
+
+
+
+hoodledb = db "hoodle"
+
+rpDoc = doc "recent_path"
+
+
+
 -- |
 main :: IO ()
 main = do  
-    pathref <- newIORef ("" :: FilePath) 
+    cdir <- getCurrentDirectory 
+    mr <- runCouchDB' (getDoc hoodledb rpDoc)
+    (rev1,dirinfo) <- 
+      case mr of 
+        Nothing -> do 
+          Right trev<- runCouchDB' (newNamedDoc hoodledb rpDoc (toJSON (RecentPath cdir)))
+          return (trev,cdir)
+        Just (_,trev,j) -> do 
+          print j 
+          case fromJSON j of 
+            Ok (RecentPath ndir) -> return (trev,ndir) 
+            Error err -> error err
+    pathref <- newIORef (dirinfo :: FilePath) 
     hoodleStartMain defaultScriptConfig 
            { message = Just welcomeMessage 
            , hook = Just (newhook pathref) } 
+    lastpath <- readIORef pathref
+    runCouchDB' $ updateDoc hoodledb (rpDoc,rev1) (toJSON (RecentPath lastpath))
+    return () 
        -- { message = welcomeMessage } 
 
 -- | 
