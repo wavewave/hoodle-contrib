@@ -39,7 +39,6 @@ hoodledb = db "hoodle"
 rpDoc = doc "recent_path"
 
 
-
 -- |
 main :: IO ()
 main = do  
@@ -75,6 +74,7 @@ newhook ref =
               , customContextMenuHook = Just custommenuhook 
               , fileNameSuggestionHook = Just fnamesuggest
               , recentFolderHook = Just (giveMemoed ref)
+              , embedPredefinedImageHook = Just (return "/home/wavewave/test.png")
               } 
 
 
