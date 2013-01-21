@@ -6,6 +6,7 @@ import           Control.Category
 import           Control.Lens hiding ((<.>))
 import qualified Data.ByteString.Char8 as B 
 import           Data.IORef 
+import           Data.List 
 import           Data.Monoid 
 import           Data.Time.Clock 
 import           Database.CouchDB
@@ -74,9 +75,21 @@ newhook ref =
               , customContextMenuHook = Just custommenuhook 
               , fileNameSuggestionHook = Just fnamesuggest
               , recentFolderHook = Just (giveMemoed ref)
-              , embedPredefinedImageHook = Just (return "/home/wavewave/test.png")
+              , embedPredefinedImageHook = Just (return "/home/wavewave/Dropbox/memos/screenshot.png")
+              , embedPredefinedImage2Hook = Just lastUploaded 
               } 
 
+-- | 
+lastUploaded :: IO FilePath 
+lastUploaded = do 
+  homedir <- getHomeDirectory 
+  let camboxdir = homedir </> "Dropbox" </> "Apps" </> "Cambox"
+  contents <- getDirectoryContents camboxdir 
+  let isJpg fp = takeExtension fp == ".jpg" 
+  let fn = (last . sort . filter isJpg) contents 
+  print fn 
+  return (camboxdir </> fn) 
+  -- (return "/home/wavewave/Dropbox/memos/screenshot.png")
 
 memoPath :: IORef FilePath -> FilePath -> Hoodle -> IO () 
 memoPath ref fp _ = do 
@@ -108,7 +121,11 @@ makepng itms fp = do
     Just (BBox (ulx,uly) (lrx,lry),r) -> 
       withImageSurface FormatARGB32 (floor (lrx-ulx)) (floor (lry-uly)) $ 
         \s -> do 
-          renderWith s r 
+          renderWith s $ do
+            setSourceRGBA 1 1 1 1 
+            rectangle 0 0 (lrx-ulx) (lry-uly) 
+            fill 
+            r 
           surfaceWriteToPNG s fp 
 
 -- |
@@ -178,6 +195,6 @@ welcomeMessage =
    \ =                                                 =\n\
    \ =           Copyright 2011-2013  Ian-Woo Kim      =\n\
    \ =                                                 =\n\
-   \ =                            Date: 2013.01.03     =\n\
+   \ =                            Date: 2013.01.20     =\n\
    \ =                                                 =\n\
    \ ===================================================\n"
